@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.2 - 2026-11-23
+Skill setup moved to its own repo.
+
+### Changed
+- The `setup/` skills, rules and install script now live in the private repo `FikretGezer/claude-setup`, with detailed instructions the other computer's Claude can follow alone. This repo keeps only the visuals and a pointer.
+
 ## v0.4.1 - 2026-11-23
 Slider timing: the night-to-day change now starts later and finishes at the end.
 
