@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.0 - 2026-11-23
+One-command setup for another computer.
+
+### Added
+- `setup/` folder with the `visual` and `ship` skills, the CLAUDE.md rules (caveman always on, use skills proactively, check the library first) and `install.ps1`. Clone the repo, run the script, start a new session.
+- `setup/README.md` with the steps and the plugins that must be installed by hand (superpowers, caveman).
+
 ## v0.3.1 - 2026-11-23
 Fix the back button when pages are opened as local files.
 
