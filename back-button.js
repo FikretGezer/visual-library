@@ -4,7 +4,7 @@
 // wallpapers stay clean; reappears on mouse move or touch. Esc also goes back.
 (function(){
   if (window.__vlBack) return; window.__vlBack = true;
-  const HREF = new URL('../gallery.html', document.currentScript ? document.currentScript.src : location.href).href;
+  const HREF = new URL('gallery.html', document.currentScript ? document.currentScript.src : location.href).href;
 
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:16px;top:16px;z-index:2147483647;';

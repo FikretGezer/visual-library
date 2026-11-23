@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.1 - 2026-11-23
+Fix the back button when pages are opened as local files.
+
+### Fixed
+- The "Library" button went one folder too high and showed "file not found" when a visual was opened by double-clicking. It now returns to `gallery.html` correctly.
+
 ## v0.3.0 - 2026-11-23
 Back button on every visual, and a fisheye lens for the slider.
 
