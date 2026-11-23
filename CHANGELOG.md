@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.1 - 2026-11-23
+Slider timing: the night-to-day change now starts later and finishes at the end.
+
+### Changed
+- AI Autopilot Slider: the room starts changing when the lens is near 30% and reaches the full daytime look only close to 100%. Before, it was already fully day at about 50%. Robots, the person, the check mark and the music notes were re-timed to match.
+
 ## v0.4.0 - 2026-11-23
 One-command setup for another computer.
 

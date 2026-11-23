@@ -32,13 +32,16 @@ const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 const hash = (a, b = 0) => { const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); };
 
+// Night -> day happens between lens positions G0 and G1 (starts ~30%, final look only at the very end).
+const G0 = 0.30, G1 = 0.96;
+
 // ---------- pixel scene (264 x 80) ----------
 const SW = 264, SH = 80;
 const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH;
 const s = sc.getContext('2d');
 
 function drawScene(t, v){
-  const g = sm(v, 0.28, 0.6);                    // night -> day
+  const g = sm(v, G0, G1);                       // night -> day
   const C = (n, d, a = 1) => css(mix(n, d, g), a);
   const R = (x, y, w, h, col) => { s.fillStyle = col; s.fillRect(Math.round(x), Math.round(y), w, h); };
 
@@ -105,7 +108,7 @@ function drawScene(t, v){
   R(101, 18, 1, 4, css([240, 70, 70], 1 - g)); R(101, 23, 1, 1, css([240, 70, 70], 1 - g));
 
   // post-its (manual chaos)
-  const pa = 1 - sm(v, 0.1, 0.38);
+  const pa = 1 - sm(v, 0.30, 0.58);
   if (pa > 0.01){
     const PC = [[236, 70, 82], [250, 202, 62], [242, 132, 60], [236, 70, 82], [250, 202, 62], [242, 132, 60], [236, 70, 82]];
     for (let i = 0; i < 7; i++){
@@ -118,7 +121,7 @@ function drawScene(t, v){
   }
 
   // person at desk (manual) — fades as v rises
-  const pd = 1 - sm(v, 0.4, 0.62);
+  const pd = 1 - sm(v, 0.55, 0.76);
   if (pd > 0.01){
     const bob = Math.sin(t * 9) > 0 ? 0 : 1;
     R(99, 31, 4, 4, css([236, 180, 140], pd)); R(99, 30, 4, 2, css([54, 42, 40], pd));
@@ -157,7 +160,7 @@ function drawScene(t, v){
   R(218, 36, 30, 18, couch); R(216, 42, 6, 12, C([54, 44, 76], [64, 130, 100])); R(244, 42, 6, 12, C([54, 44, 76], [64, 130, 100]));
   R(222, 46, 22, 8, C([72, 60, 98], [92, 168, 136]));
   // person on couch (autopilot)
-  const pc = sm(v, 0.55, 0.82);
+  const pc = sm(v, 0.78, 0.96);
   if (pc > 0.01){
     R(226, 36, 5, 5, css([236, 180, 140], pc)); R(226, 35, 5, 2, css([40, 32, 34], pc));
     R(226, 38, 5, 1, css([14, 14, 20], pc));                           // sunglasses
@@ -168,7 +171,7 @@ function drawScene(t, v){
   R(256, 38, 9, 16, C([92, 60, 50], [214, 72, 72]));
   R(257, 40, 2, 3, C([24, 18, 20], [30, 24, 28])); R(262, 40, 2, 3, C([24, 18, 20], [30, 24, 28]));
   R(258, 46, 5, 5, C([62, 40, 34], [150, 40, 44]));
-  const na = sm(v, 0.7, 0.9);
+  const na = sm(v, 0.9, 1.0);
   if (na > 0.01) for (let i = 0; i < 2; i++){
     const ny = 32 - ((t * 6 + i * 9) % 18), nx = 250 + i * 6 + Math.sin(t * 2 + i) * 2;
     const al = na * (1 - ((t * 6 + i * 9) % 18) / 18);
@@ -189,9 +192,9 @@ function drawScene(t, v){
     const bob = u >= 1 ? Math.sin(t * 2 + i * 1.7) * 1.4 : 0;
     return [ax + (bx - ax) * u, ay + (by - ay) * u - hop + bob];
   };
-  const u1 = sm(v, 0.3, 0.6), u2 = sm(v, 0.35, 0.66), u3 = sm(v, 0.4, 0.72);
+  const u1 = sm(v, 0.40, 0.80), u2 = sm(v, 0.50, 0.88), u3 = sm(v, 0.58, 0.95);
   const bodyC = (c1, c2) => C(c1, c2);
-  const eyeC = (dimmed, lit) => css(mix(dimmed, lit, sm(v, 0.2, 0.5)));
+  const eyeC = (dimmed, lit) => css(mix(dimmed, lit, sm(v, 0.3, 0.65)));
   const face = C([26, 28, 44], [30, 34, 54]);
   let [x, y] = rb(u2, 168, 47, 164, 22, 2);
   robot(x, y, bodyC([150, 156, 178], [192, 176, 224]), eyeC([62, 92, 172], [40, 40, 70]), face, 1.2);
@@ -200,14 +203,14 @@ function drawScene(t, v){
   [x, y] = rb(u1, 150, 47, 98, 31, 1);
   robot(x, y, bodyC([150, 156, 178], [246, 247, 252]), eyeC([62, 92, 172], [255, 206, 60]), face, 0.2);
   // sleeping Z (night)
-  const za = 1 - sm(v, 0.08, 0.28);
+  const za = 1 - sm(v, 0.30, 0.45);
   if (za > 0.01){
     const zy = 36 - ((t * 3) % 6);
     const zc = css([110, 170, 255], za);
     R(172, zy, 4, 1, zc); R(174, zy + 1, 1, 1, zc); R(173, zy + 2, 1, 1, zc); R(172, zy + 3, 4, 1, zc);
   }
   // green check + sparkles (autopilot)
-  const ga = sm(v, 0.6, 0.85);
+  const ga = sm(v, 0.85, 0.98);
   if (ga > 0.01){
     const ck = css([90, 232, 150], ga);
     R(110, 17, 1, 1, ck); R(111, 18, 1, 1, ck); R(112, 17, 1, 1, ck); R(113, 16, 1, 1, ck); R(114, 15, 1, 1, ck);
@@ -321,7 +324,7 @@ function frame(now){
   const t = now / 1000;
   if (!drag && t - lastInput > (phase.type === 'move' && mv && mv.dur === 0.6 ? 0 : 3)) stepAuto(t);
   layout();
-  const g = sm(v, 0.28, 0.6);
+  const g = sm(v, G0, G1);
 
   // page background
   const bg = cx.createRadialGradient(W / 2, H * 0.54, 20, W / 2, H * 0.54, Math.max(W, H) * 0.7);
