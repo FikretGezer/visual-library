@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>agac.py — ASCII Christmas Tree</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;cursor:none}
+  canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ---------------------------------------------------------------------------
+// Port of the "agac.py" ASCII Christmas tree (999.2006.01.19) to the browser.
+// Tree geometry follows the Python source visible in the original video.
+// ---------------------------------------------------------------------------
+const TAU = Math.PI * 2;
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+const glow = document.createElement('canvas'), gx = glow.getContext('2d');
+let W, H, DPR;
+function fit(){
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  glow.width = Math.ceil(W / 4); glow.height = Math.ceil(H / 4);
+}
+fit(); addEventListener('resize', fit);
+
+// --- seeded rng (default_rng(7) stand-in) ---------------------------------
+let _s = 7 * 2654435761 >>> 0;
+const random = () => ((_s = (_s * 1664525 + 1013904223) >>> 0) / 4294967296);
+const uniform = (a, b) => a + (b - a) * random();
+function normal(){ let u = 0, v = 0; while (!u) u = random(); v = random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v); }
+
+function fib(n){
+  const out = [];
+  for (let k = 0; k < n; k++){
+    const i = k + 0.5, y = 1 - 2 * i / n, r = Math.sqrt(1 - y * y);
+    const th = Math.PI * (3 - Math.sqrt(5)) * i;
+    out.push([r * Math.cos(th), y, r * Math.sin(th)]);
+  }
+  return out;
+}
+
+// --- kinds -----------------------------------------------------------------
+const NEEDLE = 0, TRUNK = 1, BALL = 2, LIGHT = 3, GARLAND = 4, GIFT = 5, RIBBON = 6, SNOW = 7;
+
+const Y0 = 0.42, Y1 = 2.55;            // foliage from .. to
+function envelope(y){
+  const f = Math.min(1, Math.max(0, (y - Y0) / (Y1 - Y0)));
+  return 0.03 + 0.84 * Math.pow(1 - f, 1.08);
+}
+
+// Parts: flat arrays
+const A = { x:[], y:[], z:[], nx:[], ny:[], nz:[], r:[], g:[], b:[], k:[], t0:[], ph:[], sh:[] };
+function add(x, y, z, nx, ny, nz, r, g, b, kind, t0, ph = 0, sh = 1){
+  const l = Math.hypot(nx, ny, nz) || 1;
+  A.x.push(x); A.y.push(y); A.z.push(z);
+  A.nx.push(nx / l); A.ny.push(ny / l); A.nz.push(nz / l);
+  A.r.push(r); A.g.push(g); A.b.push(b); A.k.push(kind); A.t0.push(t0); A.ph.push(ph); A.sh.push(sh);
+}
+
+const DENS = 0.5;   // fraction of the original needle count (keeps 30 fps)
+const tips = [];
+
+// --- needles: whorls of drooping branches, dense at the tips ----------------
+const TIERS = 24;
+for (let i = 0; i < TIERS; i++){
+  const y = (Y0 + 0.02) + ((Y1 - 0.04) - (Y0 + 0.02)) * i / (TIERS - 1);
+  const R = envelope(y);
+  const hf = (y - Y0) / (Y1 - Y0);
+  const nb = Math.floor(7 + 11 * (1 - hf));
+  for (let b = 0; b < nb; b++){
+    const a = TAU * b / nb + i * 0.618 * TAU + normal() * 0.12;
+    const L = R * uniform(0.82, 1.06);
+    const n = Math.floor((250 + 1400 * L) * DENS);
+    const dx = Math.cos(a), dz = Math.sin(a);
+    const sx = -Math.sin(a), sz = Math.cos(a);
+    for (let k = 0; k < n; k++){
+      const s = Math.pow(random(), 0.65);
+      const spread = (0.035 + 0.11 * s) * normal();
+      const yy = y + 0.07 * s * L - 0.22 * (s * L) ** 2 + 0.03 * normal() * s;
+      const px = dx * s * L + sx * spread, pz = dz * s * L + sz * spread;
+      const nx = dx * 0.75 + normal() * 0.35, ny = 0.55 + normal() * 0.35, nz = dz * 0.75 + normal() * 0.35;
+      const ao = 0.35 + 0.65 * Math.pow(s, 1.3);
+      const tone = ao * uniform(0.75, 1.1);
+      const t0 = 1.3 + 5.0 * hf + 0.45 * s;
+      const snow = s > 0.45 && random() < 0.05 * s && ny > 0.5;
+      if (snow){
+        add(px, yy + 0.01, pz, 0, 1, 0, 0.92, 0.95, 1.0, SNOW, t0, 0, 1);
+      } else {
+        const m = s * uniform(0.6, 1.0);
+        add(px, yy, pz, nx, ny, nz,
+            0.07 + 0.22 * m, 0.30 + 0.30 * m, 0.13 + 0.10 * m, NEEDLE, t0, 0, tone);
+      }
+    }
+    const st = 0.93;
+    tips.push([dx * L * st, y + 0.07 * st * L - 0.22 * (st * L) ** 2, dz * L * st, hf]);
+  }
+}
+
+// --- trunk -------------------------------------------------------------------
+for (let i = 0; i < 50; i++){
+  for (let j = 0; j < 36; j++){
+    const h = -0.05 + 0.65 * i / 49, a = TAU * j / 36;
+    const bark = 0.75 + 0.25 * Math.sin(h * 90 + a * 3);
+    add(0.085 * Math.cos(a), h, 0.085 * Math.sin(a), Math.cos(a), 0, Math.sin(a),
+        0.42 * bark, 0.26 * bark, 0.14 * bark, TRUNK, 1.0);
+  }
+}
+
+// shuffle tips so balls / lights spread evenly
+for (let i = tips.length - 1; i > 0; i--){ const j = Math.floor(random() * (i + 1)); [tips[i], tips[j]] = [tips[j], tips[i]]; }
+
+// --- baubles hung at branch tips --------------------------------------------
+const sphere = fib(110);
+const BALLCOL = [[0.86, 0.07, 0.09], [0.86, 0.07, 0.09], [0.95, 0.68, 0.18], [0.86, 0.07, 0.09], [0.95, 0.68, 0.18], [0.80, 0.80, 0.85]];
+const NBALL = 44;
+for (let q = 0; q < NBALL; q++){
+  const [tx, ty, tz, hf] = tips[q];
+  const rr = 0.075 + 0.025 * random();
+  const c = BALLCOL[q % BALLCOL.length];
+  const t0 = 6.0 + 2.5 * hf + random() * 0.6;
+  for (const [ux, uy, uz] of sphere)
+    add(tx + ux * rr, ty - 0.07 + uy * rr, tz + uz * rr, ux, uy, uz, c[0], c[1], c[2], BALL, t0);
+}
+
+// --- lights: 170, switched on one by one ------------------------------------
+const NL = 170;
+const LIGHTCOL = [[1.0, 0.82, 0.45], [1.0, 0.82, 0.45], [1.0, 0.95, 0.8], [1.0, 0.82, 0.45], [1.0, 0.35, 0.3], [1.0, 0.82, 0.45]];
+const lightT0 = [];
+for (let q = 0; q < NL; q++){
+  const [tx, ty, tz] = tips[NBALL + q];
+  const c = LIGHTCOL[q % LIGHTCOL.length];
+  const t0 = 8.0 + 3.6 * q / NL;
+  lightT0.push(t0);
+  add(tx * 1.02, ty, tz * 1.02, tx, 0.3, tz, c[0], c[1], c[2], LIGHT, t0, random() * TAU);
+}
+
+// --- the tinsel garland: a drooping gold spiral, in swags -------------------
+{
+  const N = 2600, turns = 3.6;
+  for (let k = 0; k < N; k++){
+    const u = k / (N - 1);
+    const yg = Y0 + 0.15 + (Y1 - Y0 - 0.45) * u;
+    const ag = TAU * turns * u + 0.9;
+    const swag = -0.06 * Math.abs(Math.sin(ag * 2.5));
+    const rg = envelope(yg) * 1.0 + 0.06;
+    for (let j = 0; j < 4; j++){
+      const jx = normal() * 0.012, jy = normal() * 0.014;
+      add(rg * Math.cos(ag) + jx, yg + swag + jy, rg * Math.sin(ag) + jx,
+          Math.cos(ag), 0.4, Math.sin(ag), 1.0, 0.76, 0.28, GARLAND, 7.0 + 2.6 * u, random() * TAU);
+    }
+  }
+}
+
+// --- gifts under the tree ---------------------------------------------------
+function gift(ax, az, w, h, d, rot, col, rib, t0){
+  const c = Math.cos(rot), s = Math.sin(rot);
+  const put = (lx, ly, lz, nx, ny, nz, kind, cc) => {
+    add(ax + lx * c - lz * s, ly, az + lx * s + lz * c, nx * c - nz * s, ny, nx * s + nz * c, cc[0], cc[1], cc[2], kind, t0);
+  };
+  const step = 0.012;
+  for (let u = -w / 2; u <= w / 2; u += step)
+    for (let v = 0; v <= h; v += step){
+      for (const sgn of [-1, 1]){
+        const r1 = Math.abs(u) < w * 0.08;
+        put(u, v, sgn * d / 2, 0, 0, sgn, r1 ? RIBBON : GIFT, r1 ? rib : col);
+      }
+    }
+  for (let u = -d / 2; u <= d / 2; u += step)
+    for (let v = 0; v <= h; v += step){
+      for (const sgn of [-1, 1]){
+        const r1 = Math.abs(u) < d * 0.08;
+        put(sgn * w / 2, v, u, sgn, 0, 0, r1 ? RIBBON : GIFT, r1 ? rib : col);
+      }
+    }
+  for (let u = -w / 2; u <= w / 2; u += step)
+    for (let v = -d / 2; v <= d / 2; v += step){
+      const r1 = Math.abs(u) < w * 0.08 || Math.abs(v) < d * 0.08;
+      put(u, h, v, 0, 1, 0, r1 ? RIBBON : GIFT, r1 ? rib : col);
+    }
+  // bow: two loops on top
+  for (let k = 0; k < 160; k++){
+    const a = TAU * k / 160, side = k % 2 ? 1 : -1;
+    const lx = side * (0.04 + 0.04 * Math.cos(a)), ly = h + 0.03 + 0.035 * Math.abs(Math.sin(a));
+    put(lx, ly, 0.02 * Math.sin(a), side, 0.6, 0.2, RIBBON, rib);
+  }
+}
+gift(-0.66,  0.25, 0.21, 0.18, 0.20, 0.30, [0.82, 0.06, 0.08], [0.98, 0.80, 0.35], 10.0);
+gift( 0.70,  0.18, 0.17, 0.14, 0.17, -0.4, [0.12, 0.25, 0.85], [0.92, 0.92, 0.96], 10.4);
+gift( 0.08,  0.78, 0.18, 0.14, 0.16, 0.10, [0.82, 0.06, 0.08], [0.95, 0.95, 0.95], 10.8);
+gift(-0.50, -0.58, 0.16, 0.22, 0.16, 0.80, [0.95, 0.70, 0.15], [0.82, 0.06, 0.08], 11.1);
+gift( 0.55, -0.55, 0.15, 0.12, 0.19, 0.20, [0.92, 0.92, 0.95], [0.82, 0.06, 0.08], 11.4);
+gift(-0.88, -0.10, 0.13, 0.10, 0.13, 0.60, [0.10, 0.55, 0.30], [0.98, 0.80, 0.35], 11.6);
+
+const NP = A.x.length;
+const PX = Float32Array.from(A.x), PY = Float32Array.from(A.y), PZ = Float32Array.from(A.z);
+const NX = Float32Array.from(A.nx), NY = Float32Array.from(A.ny), NZ = Float32Array.from(A.nz);
+const CR = Float32Array.from(A.r), CG = Float32Array.from(A.g), CB = Float32Array.from(A.b);
+const KD = Uint8Array.from(A.k), T0 = Float32Array.from(A.t0), PH = Float32Array.from(A.ph), SH = Float32Array.from(A.sh);
+
+// --- camera / light -----------------------------------------------------------
+const CAMY = 1.35, CAMZ = 6.5;
+const STAR_Y = 2.64, STAR_T0 = 11.0;
+let Lx = -0.45, Ly = 0.55, Lz = 0.70; { const l = Math.hypot(Lx, Ly, Lz); Lx /= l; Ly /= l; Lz /= l; }
+let Hx = Lx, Hy = Ly, Hz = Lz + 1; { const l = Math.hypot(Hx, Hy, Hz); Hx /= l; Hy /= l; Hz /= l; }
+const RAMP = ' .:-=+*#%@';
+
+// --- background stars & falling snow (screen space) -------------------------
+const bgStars = Array.from({ length: 340 }, () => ({ u: random(), v: random() * 0.8, ph: random() * TAU, ch: random() < 0.8 ? '.' : (random() < 0.5 ? '*' : '+') }));
+const flakes  = Array.from({ length: 160 }, () => ({ u: random(), v: random(), sp: 0.015 + random() * 0.04, ph: random() * TAU, ch: random() < 0.7 ? '.' : '*' }));
+
+function hash(a, b){ const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); }
+
+// --- frame -------------------------------------------------------------------
+const START = performance.now();
+let lastDraw = 0, lastT = 0, fps = 30;
+let zb, win, chs, cr, cg, cb, gridN = 0;
+
+function frame(now){
+  requestAnimationFrame(frame);
+  if (now - lastDraw < 1000 / 30 - 1.5) return;
+  fps = fps * 0.9 + 0.1 * (1000 / Math.max(1, now - lastDraw));
+  lastDraw = now;
+  const t = (now - START) / 1000;
+  const dt = Math.min(0.1, t - lastT); lastT = t;
+
+  const CH = Math.max(8, H / 86), CW = CH * 0.58;
+  const cols = Math.ceil(W / CW), rows = Math.ceil(H / CH);
+  const N = cols * rows;
+  if (N !== gridN){
+    gridN = N; zb = new Float32Array(N); win = new Int32Array(N);
+    chs = new Array(N); cr = new Uint8Array(N); cg = new Uint8Array(N); cb = new Uint8Array(N);
+  }
+  zb.fill(1e9); win.fill(-1); chs.fill('');
+
+  const f = H * 1.62, ccx = W / 2, ccy = H * 0.45;
+  const rotDeg = (t * 18) % 360, rot = rotDeg * Math.PI / 180;
+  const c = Math.cos(rot), s = Math.sin(rot);
+
+  // ---- floor: snow disc, ray-cast per cell ----
+  const FR = 1.65;
+  for (let r = 0; r < rows; r++){
+    const sy = (r + 0.5) * CH;
+    if (sy <= ccy + 2) continue;
+    const zc = f * CAMY / (sy - ccy);
+    const zw = CAMZ - zc;
+    if (Math.abs(zw) > FR) continue;
+    for (let q = 0; q < cols; q++){
+      const sx = (q + 0.5) * CW;
+      const xw = (sx - ccx) * zc / f;
+      const d2 = xw * xw + zw * zw;
+      if (d2 > FR * FR) continue;
+      const idx = r * cols + q;
+      const d = Math.sqrt(d2);
+      const hs = hash(q, r);
+      let lum = 0.38 + 0.18 * hs - 0.14 * (d / FR);
+      if (d < 0.75) lum *= 0.55 + 0.45 * (d / 0.75);
+      zb[idx] = zc;
+      chs[idx] = hs < 0.12 ? '+' : (hs > 0.9 ? ':' : (r % 2 ? '-' : '='));
+      const g = Math.min(255, 255 * lum);
+      cr[idx] = g * 0.80; cg[idx] = g * 0.84; cb[idx] = g * 0.95;
+    }
+  }
+
+  // ---- point cloud z-buffer ----
+  for (let i = 0; i < NP; i++){
+    if (t < T0[i]) continue;
+    const x = PX[i] * c + PZ[i] * s, z = -PX[i] * s + PZ[i] * c;
+    const zc = CAMZ - z;
+    const sx = ccx + f * x / zc, sy = ccy - f * (PY[i] - CAMY) / zc;
+    if (sx < 0 || sy < 0) continue;
+    const q = (sx / CW) | 0, r = (sy / CH) | 0;
+    if (q >= cols || r >= rows) continue;
+    const idx = r * cols + q;
+    if (zc < zb[idx]){ zb[idx] = zc; win[idx] = i; }
+  }
+
+  // ---- shade winners ----
+  for (let idx = 0; idx < N; idx++){
+    const i = win[idx];
+    if (i < 0) continue;
+    const nx = NX[i] * c + NZ[i] * s, ny = NY[i], nz = -NX[i] * s + NZ[i] * c;
+    const diff = Math.max(0, nx * Lx + ny * Ly + nz * Lz);
+    let R = CR[i], G = CG[i], B = CB[i], lum, ch = null;
+    const kind = KD[i];
+    if (kind === NEEDLE){
+      lum = SH[i] * (0.16 + 0.78 * diff);
+      const k = 0.6 + 0.9 * lum; R *= k; G *= k; B *= k;
+      ch = RAMP[Math.max(1, Math.min(8, Math.round(lum * 8.5)))];
+    } else if (kind === SNOW){
+      lum = 0.55 + 0.45 * diff; R *= lum; G *= lum; B *= lum;
+    } else if (kind === TRUNK){
+      lum = 0.25 + 0.6 * diff; R *= 0.6 + lum; G *= 0.6 + lum; B *= 0.6 + lum;
+    } else if (kind === BALL){
+      const spec = Math.pow(Math.max(0, nx * Hx + ny * Hy + nz * Hz), 28);
+      lum = 0.3 + 0.7 * diff + spec;
+      R = R * (0.45 + 0.9 * diff) + spec; G = G * (0.45 + 0.9 * diff) + spec; B = B * (0.45 + 0.9 * diff) + spec;
+      if (spec > 0.45) ch = '@';
+    } else if (kind === LIGHT){
+      const tw = 0.6 + 0.4 * Math.sin(t * 3.2 + PH[i]);
+      lum = 1; ch = tw > 0.82 ? '@' : 'o';
+      R *= 0.55 + 0.6 * tw; G *= 0.55 + 0.6 * tw; B *= 0.55 + 0.6 * tw;
+    } else if (kind === GARLAND){
+      const sp = Math.max(0, Math.sin(t * 4 + PH[i])) ** 6;
+      lum = 0.35 + 0.65 * diff + 0.5 * sp;
+      ch = lum > 0.78 ? '*' : (lum > 0.5 ? '~' : '-');
+      const k = 0.55 + 0.7 * lum; R *= k; G *= k; B *= k;
+    } else {
+      lum = 0.3 + 0.75 * diff;
+      const k = 0.5 + 0.8 * lum; R *= k; G *= k; B *= k;
+    }
+    // fresh points flash white as they grow in
+    const age = t - T0[i];
+    if (age < 0.6){
+      const w = 1 - age / 0.6;
+      R += (1 - R) * w; G += (1 - G) * w; B += (1 - B) * w; lum = Math.max(lum, 0.6 + 0.4 * w);
+    }
+    if (!ch) ch = RAMP[Math.max(1, Math.min(9, Math.round(lum * 9)))];
+    chs[idx] = ch;
+    cr[idx] = Math.min(255, R * 255); cg[idx] = Math.min(255, G * 255); cb[idx] = Math.min(255, B * 255);
+  }
+
+  // ---- star on top: '#' block with ASCII rays ----
+  if (t >= STAR_T0){
+    const zc = CAMZ;
+    const sx = ccx, sy = ccy - f * (STAR_Y - CAMY) / zc;
+    const q0 = Math.floor(sx / CW), r0 = Math.floor(sy / CH);
+    const a = Math.min(1, (t - STAR_T0) / 0.8);
+    const put = (q, r, ch, k) => {
+      if (q < 0 || r < 0 || q >= cols || r >= rows) return;
+      const idx = r * cols + q;
+      chs[idx] = ch; cr[idx] = 255 * k; cg[idx] = 205 * k; cb[idx] = 90 * k;
+    };
+    const block = [[0, 0], [-1, 1], [-3, 3], [-2, 2], [-2, 2]];
+    block.forEach(([lo, hi], j) => { for (let q = lo; q <= hi; q++) put(q0 + q, r0 - 2 + j, '#', a); });
+    const len = Math.round((5 + 2 * Math.sin(t * 2.2)) * a);
+    for (let k = 1; k <= len + 3; k++){ if (k % 2 === 0) { put(q0 + 3 + k, r0, '-', 0.75 * a); put(q0 - 3 - k, r0, '-', 0.75 * a); } }
+    for (let k = 1; k <= len; k++){
+      const fade = (1 - k / (len + 2)) * a;
+      put(q0, r0 - 2 - k, '|', fade); put(q0, r0 + 2 + k, '|', fade * 0.8);
+      put(q0 + k, r0 - 2 - k, '/', fade); put(q0 - k, r0 - 2 - k, '\\', fade);
+      put(q0 + k + 1, r0 + 2 + k, '\\', fade * 0.8); put(q0 - k - 1, r0 + 2 + k, '/', fade * 0.8);
+    }
+  }
+
+  // ---- draw ----
+  cx.fillStyle = '#0a0e1a'; cx.fillRect(0, 0, W, H);
+  cx.font = `bold ${Math.round(CH * 0.98)}px Consolas, "DejaVu Sans Mono", "Courier New", monospace`;
+  cx.textBaseline = 'top';
+
+  // stars (only where nothing else is drawn)
+  for (const st of bgStars){
+    const q = (st.u * cols) | 0, r = (st.v * rows) | 0;
+    const idx = r * cols + q;
+    if (chs[idx]) continue;
+    const a = 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.ph));
+    cx.fillStyle = `rgba(215,225,255,${a})`;
+    cx.fillText(st.ch, q * CW, r * CH);
+  }
+
+  let letters = 0;
+  for (let idx = 0; idx < N; idx++){
+    const ch = chs[idx];
+    if (!ch) continue;
+    letters++;
+    cx.fillStyle = `rgb(${cr[idx]},${cg[idx]},${cb[idx]})`;
+    cx.fillText(ch, (idx % cols) * CW, ((idx / cols) | 0) * CH);
+  }
+
+  // falling snow
+  cx.fillStyle = 'rgba(240,245,255,0.85)';
+  for (const fl of flakes){
+    fl.v += fl.sp * dt; if (fl.v > 1){ fl.v = 0; fl.u = random(); }
+    const x = fl.u * W + Math.sin(t * 0.7 + fl.ph) * CW;
+    cx.fillText(fl.ch, Math.round(x / CW) * CW, Math.round(fl.v * H * 0.92 / CH) * CH);
+  }
+
+  // bloom
+  gx.globalCompositeOperation = 'copy';
+  gx.filter = 'blur(2.5px)';
+  gx.drawImage(cv, 0, 0, glow.width, glow.height);
+  gx.filter = 'none';
+  cx.save();
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  cx.globalCompositeOperation = 'lighter';
+  cx.globalAlpha = 0.55;
+  cx.imageSmoothingEnabled = true;
+  cx.drawImage(glow, 0, 0, cv.width, cv.height);
+  cx.restore();
+
+  // HUD
+  const hs = Math.max(11, Math.round(H * 0.0125)), lh = Math.round(hs * 1.45);
+  cx.font = `${hs}px Consolas, "DejaVu Sans Mono", "Courier New", monospace`;
+  cx.fillStyle = 'rgba(160,170,190,0.75)';
+  const hx = Math.round(W * 0.012), hy = H - lh * 4 - 8;
+  let lit = 0; for (const l0 of lightT0) if (t >= l0) lit++;
+  cx.fillText('@999.2006.01.19 · 2026', hx, hy);
+  cx.fillText(`rotation ${rotDeg.toFixed(2).padStart(6, '0')}°     lights  ${lit}`, hx, hy + lh);
+  cx.fillText(`letters ${letters.toLocaleString('en-US')}`, hx, hy + lh * 2);
+  cx.fillStyle = 'rgba(200,205,215,0.85)';
+  cx.fillText('py agac.py', hx, hy + lh * 3 + 4);
+  const run = `running · ${Math.round(Math.min(30, fps))} fps`;
+  cx.fillText(run, W - hx - cx.measureText(run).width, hy + lh * 3 + 4);
+  cx.fillStyle = 'rgba(235,80,95,0.9)';
+  const tt = `t ${t.toFixed(2).padStart(5, '0')}s`;
+  cx.fillText(tt, W - hx - cx.measureText(tt).width, 10);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
