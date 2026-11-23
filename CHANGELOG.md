@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.0 - 2026-11-23
+Back button on every visual, and a fisheye lens for the slider.
+
+### Added
+- A glass "Library" button on every visual that returns to the gallery. It fades out when the mouse is still so wallpapers stay clean; Esc works too. One shared file, `back-button.js`, so new visuals get it with a single line.
+
+### Changed
+- AI Autopilot Slider: the lens now magnifies and bends what is under it like the original video, instead of being a plain glass overlay. Lens size and travel range match the video.
+
 ## v0.2.0 - 2026-11-23
 Second entry: an interactive pixel-art slider.
 

@@ -11,7 +11,7 @@ Pixel-art room inside a pill-shaped capsule. A glass lens slides left to right.
 ## Technique
 - Scene is drawn at 264x80 pixels on an offscreen canvas with `fillRect`, then scaled up with smoothing off and clipped to the pill.
 - One value `v` (0..1) drives everything. `g = smoothstep(v, 0.28, 0.6)` blends night to day palettes; objects fade or move on their own thresholds (post-its out at 0.1–0.38, robots wake and fly 0.3–0.72, person moves to couch 0.55–0.82).
-- Glass lens: translucent gradient, white rim, specular ellipse, drop shadow.
+- Glass lens: a per-pixel fisheye. After the page is drawn, the lens area is re-sampled with bilinear filtering: zoom 1/`MAG` (about 1.7x) at the centre, falling to 1x at the rim (`f = MAG + (1-MAG) * r^2.4`), plus a small red/blue colour fringe near the edge. It magnifies the room, the capsule rim and the background, which is why the capsule end shows as a big arc under the lens in the video. Rim highlight, gloss ellipse on top.
 - Timeline matches the video: hold 1.4 s, ease to 100% over 3.6 s, hold 4 s, return in about 1.8 s.
 
 ## Interaction
