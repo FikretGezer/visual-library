@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>AI Autopilot Slider</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#26233b}
+  canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;touch-action:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// AI Autopilot Slider — pixel-art room in a capsule; a glass lens slides from
+// "manual chaos" (night, messy) to "full autopilot" (day, robots do the work).
+// Drag the lens to scrub. It resumes the auto loop after a few idle seconds.
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+let W, H, DPR;
+function fit(){
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+fit(); addEventListener('resize', fit);
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const sm = (x, a, b) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const hash = (a, b = 0) => { const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return h - Math.floor(h); };
+
+// ---------- pixel scene (264 x 80) ----------
+const SW = 264, SH = 80;
+const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH;
+const s = sc.getContext('2d');
+
+function drawScene(t, v){
+  const g = sm(v, 0.28, 0.6);                    // night -> day
+  const C = (n, d, a = 1) => css(mix(n, d, g), a);
+  const R = (x, y, w, h, col) => { s.fillStyle = col; s.fillRect(Math.round(x), Math.round(y), w, h); };
+
+  // walls, wainscot, floor
+  R(0, 0, SW, 56, C([36, 32, 54], [247, 235, 205]));
+  for (let x = 0; x < SW; x += 8) R(x, 0, 1, 56, C([32, 28, 50], [238, 224, 190]));
+  R(0, 38, SW, 16, C([46, 42, 66], [236, 218, 180]));
+  R(0, 0, SW, 3, C([28, 24, 44], [226, 208, 168]));
+  R(0, 54, SW, 2, C([62, 56, 84], [216, 172, 112]));
+  R(0, 56, SW, 24, C([40, 32, 50], [200, 138, 84]));
+  for (let y = 58, row = 0; y < SH; y += 5, row++){
+    R(0, y, SW, 1, C([30, 24, 40], [170, 110, 66]));
+    for (let x = (row * 37) % 29; x < SW; x += 29) R(x, y, 1, 5, C([30, 24, 40], [170, 110, 66]));
+  }
+
+  // window
+  const wx = 14, wy = 8, ww = 46, wh = 30;
+  R(wx - 2, wy - 2, ww + 4, wh + 4, C([84, 72, 96], [170, 116, 72]));
+  R(wx, wy, ww, wh, C([12, 14, 34], [118, 190, 240]));
+  const B = [[0, 14], [7, 20], [14, 12], [21, 18], [28, 10], [34, 16], [40, 13]];
+  for (const [bx, bh] of B){
+    R(wx + bx, wy + wh - bh, 6, bh, C([24, 26, 50], [112, 142, 184]));
+    for (let k = 2; k < bh - 2; k += 4) if (hash(bx, k) > 0.55) R(wx + bx + 1 + ((k >> 1) & 2), wy + wh - bh + k, 1, 1, C([200, 170, 90], [160, 190, 220], 1 - g * 0.5));
+  }
+  for (let i = 0; i < 9; i++){
+    const a = (1 - g) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.1)));
+    R(wx + 3 + hash(i, 1) * 40, wy + 2 + hash(i, 2) * 12, 1, 1, css([255, 235, 150], a));
+  }
+  R(wx + 34, wy + 4, 5, 5, css([255, 232, 120], g));
+  R(wx + 6 + ((t * 1.2) % 30), wy + 5, 8, 2, css([255, 255, 255], g));
+  R(wx + 8 + ((t * 1.2) % 30), wy + 4, 4, 1, css([255, 255, 255], g));
+  R(wx + ww / 2 - 1, wy, 2, wh, C([84, 72, 96], [170, 116, 72]));
+  R(wx, wy + wh / 2 - 1, ww, 2, C([84, 72, 96], [170, 116, 72]));
+  R(wx - 4, wy + wh + 2, ww + 8, 3, C([84, 72, 96], [182, 130, 84]));
+
+  // plant
+  R(7, 46, 10, 8, C([104, 58, 50], [200, 100, 80]));
+  R(6, 45, 12, 2, C([120, 66, 56], [214, 114, 92]));
+  const leaf = C([28, 70, 52], [72, 172, 82]);
+  R(11, 36, 2, 10, leaf); R(7, 40, 5, 3, leaf); R(13, 38, 5, 3, leaf); R(6, 36, 4, 2, leaf); R(14, 34, 4, 2, leaf);
+
+  // desk
+  R(74, 40, 68, 3, C([56, 48, 64], [170, 110, 70]));
+  R(76, 43, 3, 13, C([46, 40, 56], [150, 94, 58])); R(137, 43, 3, 13, C([46, 40, 56], [150, 94, 58]));
+  // monitors
+  const bezel = C([18, 18, 26], [28, 32, 40]);
+  R(82, 25, 18, 14, bezel); R(104, 25, 18, 14, bezel);
+  R(90, 39, 2, 2, bezel); R(112, 39, 2, 2, bezel);
+  R(83, 26, 16, 12, C([34, 24, 36], [16, 36, 40])); R(105, 26, 16, 12, C([34, 24, 36], [16, 36, 40]));
+  const tick = Math.floor(t * 5);
+  for (let i = 0; i < 5; i++){
+    const nl = 3 + hash(i, tick) * 9, nl2 = 3 + hash(i + 9, tick) * 9;
+    const red = hash(i, 7) > 0.5 ? [236, 84, 84] : [244, 150, 70];
+    const green = [90, 232, 150];
+    const lc = mix(red, green, g);
+    R(84, 27 + i * 2, g > 0.5 ? 4 + (i * 3) % 9 : nl, 1, css(lc, 0.95));
+    if (g < 0.5) R(106, 27 + i * 2, nl2, 1, css(red, 0.95));
+  }
+  // right monitor in day: bar chart
+  for (let i = 0; i < 6; i++){
+    const hgt = 2 + 7 * clamp((i + 1) / 6 * (0.75 + 0.25 * Math.sin(t * 2 + i)), 0, 1);
+    R(106 + i * 2.5, 37 - hgt, 2, hgt, css([70, 226, 120], g));
+  }
+  R(101, 18, 1, 4, css([240, 70, 70], 1 - g)); R(101, 23, 1, 1, css([240, 70, 70], 1 - g));
+
+  // post-its (manual chaos)
+  const pa = 1 - sm(v, 0.1, 0.38);
+  if (pa > 0.01){
+    const PC = [[236, 70, 82], [250, 202, 62], [242, 132, 60], [236, 70, 82], [250, 202, 62], [242, 132, 60], [236, 70, 82]];
+    for (let i = 0; i < 7; i++){
+      const a = i * 0.9 + t * (0.45 + 0.06 * i);
+      const px = 101 + Math.cos(a) * (24 + 4 * (i % 3)) * (i % 2 ? 1 : 0.8);
+      const py = 14 + Math.sin(a * 1.3) * 5 - (1 - pa) * 14;
+      R(px, py, 5, 4, css(PC[i], pa));
+      R(px + 1, py + 1, 3, 1, css([255, 255, 255], pa * 0.35));
+    }
+  }
+
+  // person at desk (manual) — fades as v rises
+  const pd = 1 - sm(v, 0.4, 0.62);
+  if (pd > 0.01){
+    const bob = Math.sin(t * 9) > 0 ? 0 : 1;
+    R(99, 31, 4, 4, css([236, 180, 140], pd)); R(99, 30, 4, 2, css([54, 42, 40], pd));
+    R(98, 35, 6, 8, css([88, 112, 172], pd));
+    R(96, 38 + bob, 3, 2, css([236, 180, 140], pd)); R(103, 38 + (1 - bob), 3, 2, css([236, 180, 140], pd));
+    R(98, 43, 6, 3, css([50, 56, 80], pd));
+  }
+  // chair
+  R(100, 46, 2, 8, css([22, 22, 30])); R(96, 53, 10, 2, css([22, 22, 30]));
+
+  // wall monitor / AC
+  R(148, 10, 46, 13, C([48, 46, 66], [10, 24, 30]));
+  R(148, 10, 46, 1, C([66, 64, 86], [34, 52, 60]));
+  R(152, 18, 38, 1, C([36, 34, 52], [10, 24, 30]));
+  if (g > 0.05){
+    for (let i = 0; i < 18; i++){
+      const y0 = 21 - (3 + i * 0.7 + 1.6 * Math.sin(i * 1.3 + t * 1.5));
+      R(151 + i * 2.1, y0, 2, 1, css([80, 232, 140], g)); R(151 + i * 2.1, y0 + 1, 2, 21 - y0 - 1, css([40, 150, 90], g * 0.25));
+    }
+  }
+
+  // floor lamp
+  R(209, 22, 2, 32, C([84, 80, 98], [200, 168, 90]));
+  R(204, 14, 12, 8, C([96, 94, 116], [255, 232, 130]));
+  if (g > 0.05) { s.fillStyle = css([255, 232, 130], g * 0.18); s.beginPath(); s.arc(210, 20, 15, 0, 6.3); s.fill(); }
+  R(205, 54, 10, 2, C([70, 66, 88], [190, 150, 86]));
+
+  // mat in front of the robots
+  R(124, 53, 62, 4, C([30, 26, 44], [150, 162, 180]));
+  R(128, 54, 10, 2, css([70, 192, 232], g)); R(150, 54, 10, 2, css([250, 190, 60], g)); R(172, 54, 10, 2, css([150, 112, 232], g));
+
+  // couch, rug, speaker
+  R(214, 54, 40, 4, C([78, 58, 108], [220, 156, 104]));
+  for (let x = 214; x < 254; x += 4) R(x, 55, 1, 2, C([62, 46, 90], [196, 134, 86]));
+  const couch = C([64, 52, 88], [78, 152, 122]);
+  R(218, 36, 30, 18, couch); R(216, 42, 6, 12, C([54, 44, 76], [64, 130, 100])); R(244, 42, 6, 12, C([54, 44, 76], [64, 130, 100]));
+  R(222, 46, 22, 8, C([72, 60, 98], [92, 168, 136]));
+  // person on couch (autopilot)
+  const pc = sm(v, 0.55, 0.82);
+  if (pc > 0.01){
+    R(226, 36, 5, 5, css([236, 180, 140], pc)); R(226, 35, 5, 2, css([40, 32, 34], pc));
+    R(226, 38, 5, 1, css([14, 14, 20], pc));                           // sunglasses
+    R(224, 41, 9, 9, css([60, 120, 230], pc));
+    R(230, 45, 10, 3, css([232, 236, 242], pc)); R(231, 44, 8, 1, css([120, 200, 255], pc * (0.6 + 0.4 * Math.sin(t * 5))));
+  }
+  // speaker / owl
+  R(256, 38, 9, 16, C([92, 60, 50], [214, 72, 72]));
+  R(257, 40, 2, 3, C([24, 18, 20], [30, 24, 28])); R(262, 40, 2, 3, C([24, 18, 20], [30, 24, 28]));
+  R(258, 46, 5, 5, C([62, 40, 34], [150, 40, 44]));
+  const na = sm(v, 0.7, 0.9);
+  if (na > 0.01) for (let i = 0; i < 2; i++){
+    const ny = 32 - ((t * 6 + i * 9) % 18), nx = 250 + i * 6 + Math.sin(t * 2 + i) * 2;
+    const al = na * (1 - ((t * 6 + i * 9) % 18) / 18);
+    R(nx, ny, 2, 1, css([240, 120, 170], al)); R(nx + 1, ny - 4, 1, 5, css([240, 120, 170], al)); R(nx + 2, ny - 4, 2, 1, css([240, 120, 170], al));
+  }
+
+  // robots
+  function robot(x, y, body, eyes, face, blinkOff){
+    R(x, y + 1, 8, 6, body);
+    R(x + 1, y + 2, 6, 3, face);
+    const blink = (t * 0.7 + blinkOff) % 4 < 0.12 ? 0 : 1;
+    if (blink){ R(x + 2, y + 3, 1, 1, eyes); R(x + 5, y + 3, 1, 1, eyes); } else { R(x + 2, y + 3, 2, 1, eyes); }
+    R(x + 3, y - 1, 2, 2, body); R(x + 3, y - 2, 1, 1, css(mix([250, 90, 90], [120, 230, 160], g)));
+    R(x + 1, y + 7, 2, 1, body); R(x + 5, y + 7, 2, 1, body);
+  }
+  const rb = (u, ax, ay, bx, by, i) => {
+    const hop = Math.abs(Math.sin(t * 10 + i)) * 2 * Math.sin(Math.PI * clamp(u));
+    const bob = u >= 1 ? Math.sin(t * 2 + i * 1.7) * 1.4 : 0;
+    return [ax + (bx - ax) * u, ay + (by - ay) * u - hop + bob];
+  };
+  const u1 = sm(v, 0.3, 0.6), u2 = sm(v, 0.35, 0.66), u3 = sm(v, 0.4, 0.72);
+  const bodyC = (c1, c2) => C(c1, c2);
+  const eyeC = (dimmed, lit) => css(mix(dimmed, lit, sm(v, 0.2, 0.5)));
+  const face = C([26, 28, 44], [30, 34, 54]);
+  let [x, y] = rb(u2, 168, 47, 164, 22, 2);
+  robot(x, y, bodyC([150, 156, 178], [192, 176, 224]), eyeC([62, 92, 172], [40, 40, 70]), face, 1.2);
+  [x, y] = rb(u3, 186, 47, 184, 14, 3);
+  robot(x, y, bodyC([150, 156, 178], [246, 247, 252]), eyeC([62, 92, 172], [255, 206, 60]), face, 2.4);
+  [x, y] = rb(u1, 150, 47, 98, 31, 1);
+  robot(x, y, bodyC([150, 156, 178], [246, 247, 252]), eyeC([62, 92, 172], [255, 206, 60]), face, 0.2);
+  // sleeping Z (night)
+  const za = 1 - sm(v, 0.08, 0.28);
+  if (za > 0.01){
+    const zy = 36 - ((t * 3) % 6);
+    const zc = css([110, 170, 255], za);
+    R(172, zy, 4, 1, zc); R(174, zy + 1, 1, 1, zc); R(173, zy + 2, 1, 1, zc); R(172, zy + 3, 4, 1, zc);
+  }
+  // green check + sparkles (autopilot)
+  const ga = sm(v, 0.6, 0.85);
+  if (ga > 0.01){
+    const ck = css([90, 232, 150], ga);
+    R(110, 17, 1, 1, ck); R(111, 18, 1, 1, ck); R(112, 17, 1, 1, ck); R(113, 16, 1, 1, ck); R(114, 15, 1, 1, ck);
+    for (let i = 0; i < 4; i++){
+      const a = ga * (0.4 + 0.6 * Math.sin(t * 3 + i * 1.9)) ;
+      const sx = [150, 196, 140, 206][i], sy = [12, 24, 30, 10][i];
+      const sp = css([255, 210, 70], clamp(a));
+      R(sx, sy, 1, 3, sp); R(sx - 1, sy + 1, 3, 1, sp);
+    }
+  }
+  // night vignette
+  s.fillStyle = css([8, 6, 20], 0.18 * (1 - g)); s.fillRect(0, 0, SW, SH);
+}
+
+// ---------- state: auto loop + drag ----------
+let v = 0, drag = false, lastInput = -99;
+let phase = { type: 'hold', until: 1.4, next: 'forward' };
+let mv = null;
+function stepAuto(t){
+  if (phase.type === 'hold'){
+    if (t >= phase.until){
+      const fwd = phase.next === 'forward';
+      mv = { from: v, to: fwd ? 1 : 0, t0: t, dur: fwd ? 3.6 : 1.8 * Math.max(0.2, v) };
+      phase = { type: 'move', next: fwd ? 'back' : 'forward' };
+    }
+  } else {
+    const p = clamp((t - mv.t0) / mv.dur);
+    const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    v = mv.from + (mv.to - mv.from) * e;
+    if (p >= 1) phase = { type: 'hold', until: t + (phase.next === 'back' ? 4.0 : 2.0), next: phase.next };
+  }
+}
+
+// ---------- layout ----------
+let cap = { x: 0, y: 0, w: 0, h: 0, lw: 0, lh: 0 };
+function layout(){
+  const maxW = W * 0.78, maxH = (H - 150) * 0.9;
+  cap.w = Math.min(maxW, maxH * (SW / SH));
+  cap.h = cap.w * SH / SW;
+  cap.x = (W - cap.w) / 2; cap.y = H * 0.54 - cap.h / 2;
+  cap.lw = cap.h * 0.40; cap.lh = cap.h * 1.18;
+}
+const lensCx = () => cap.x + cap.lw * 0.62 + v * (cap.w - cap.lw * 1.3);
+function pointerV(px){ return clamp((px - cap.x - cap.lw * 0.62) / (cap.w - cap.lw * 1.3)); }
+cv.addEventListener('pointerdown', e => {
+  layout();
+  if (Math.abs(e.clientX - lensCx()) < cap.lw * 0.9 && Math.abs(e.clientY - (cap.y + cap.h / 2)) < cap.lh * 0.7){
+    drag = true; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing';
+  }
+});
+cv.addEventListener('pointermove', e => {
+  layout();
+  if (drag){ v = pointerV(e.clientX); lastInput = performance.now() / 1000; }
+  else cv.style.cursor = Math.abs(e.clientX - lensCx()) < cap.lw * 0.9 && Math.abs(e.clientY - (cap.y + cap.h / 2)) < cap.lh * 0.7 ? 'grab' : 'default';
+});
+const endDrag = () => { if (drag){ drag = false; cv.style.cursor = 'grab';
+  const t = performance.now() / 1000; mv = { from: v, to: v >= 0.5 ? 1 : 0, t0: t, dur: 0.6 }; phase = { type: 'move', next: v >= 0.5 ? 'back' : 'forward' }; lastInput = t; } };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+
+function rr(x, y, w, h, r){
+  cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r);
+  cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
+}
+
+function frame(now){
+  requestAnimationFrame(frame);
+  const t = now / 1000;
+  if (!drag && t - lastInput > (phase.type === 'move' && mv && mv.dur === 0.6 ? 0 : 3)) stepAuto(t);
+  layout();
+  const g = sm(v, 0.28, 0.6);
+
+  // page background
+  const bg = cx.createRadialGradient(W / 2, H * 0.54, 20, W / 2, H * 0.54, Math.max(W, H) * 0.7);
+  bg.addColorStop(0, css(mix([44, 40, 66], [236, 238, 244], g)));
+  bg.addColorStop(1, css(mix([30, 27, 48], [196, 200, 212], g)));
+  cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
+
+  // header
+  const hh = Math.max(46, H * 0.07);
+  cx.fillStyle = 'rgba(22,22,38,0.96)'; cx.fillRect(0, 0, W, hh);
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillStyle = '#f4f4fa'; cx.font = `700 ${Math.round(hh * 0.30)}px system-ui, "Segoe UI", sans-serif`;
+  cx.fillText('AI Autopilot Slider', W / 2, hh * 0.38);
+  const pct = Math.round(v * 100);
+  const label = pct === 0 ? '00 MANUAL CHAOS' : pct >= 100 ? '100% FULL AUTOPILOT' : `${String(pct).padStart(2, '0')}% AI ASSISTED`;
+  const lc = v < 0.5 ? mix([240, 90, 110], [250, 190, 70], v / 0.5) : mix([250, 190, 70], [90, 232, 150], (v - 0.5) / 0.5);
+  cx.font = `700 ${Math.round(hh * 0.20)}px Consolas, "Courier New", monospace`;
+  if ('letterSpacing' in cx) cx.letterSpacing = '2px';
+  cx.fillStyle = css(lc); cx.fillText(label, W / 2, hh * 0.74);
+  if ('letterSpacing' in cx) cx.letterSpacing = '0px';
+
+  // capsule rim + glow
+  const rim = cap.h * 0.07;
+  cx.save();
+  cx.shadowColor = g > 0.5 ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.45)';
+  cx.shadowBlur = cap.h * 0.5; cx.shadowOffsetY = cap.h * 0.06;
+  const rg = cx.createLinearGradient(0, cap.y - rim, 0, cap.y + cap.h + rim);
+  rg.addColorStop(0, css(mix([112, 110, 140], [255, 255, 255], g)));
+  rg.addColorStop(1, css(mix([56, 54, 80], [206, 210, 220], g)));
+  cx.fillStyle = rg; rr(cap.x - rim, cap.y - rim, cap.w + rim * 2, cap.h + rim * 2, cap.h / 2 + rim); cx.fill();
+  cx.restore();
+
+  // scene
+  drawScene(t, v);
+  cx.save();
+  rr(cap.x, cap.y, cap.w, cap.h, cap.h / 2); cx.clip();
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(sc, cap.x, cap.y, cap.w, cap.h);
+  const ig = cx.createLinearGradient(0, cap.y, 0, cap.y + cap.h);
+  ig.addColorStop(0, 'rgba(0,0,0,0.30)'); ig.addColorStop(0.14, 'rgba(0,0,0,0)'); ig.addColorStop(0.9, 'rgba(0,0,0,0)'); ig.addColorStop(1, 'rgba(0,0,0,0.22)');
+  cx.fillStyle = ig; cx.fillRect(cap.x, cap.y, cap.w, cap.h);
+  cx.restore();
+
+  // glass lens
+  const lx = lensCx() - cap.lw / 2, ly = cap.y + cap.h / 2 - cap.lh / 2;
+  cx.save();
+  cx.shadowColor = 'rgba(0,0,0,0.35)'; cx.shadowBlur = cap.h * 0.2; cx.shadowOffsetY = cap.h * 0.08;
+  const lg = cx.createLinearGradient(lx, ly, lx + cap.lw, ly + cap.lh);
+  lg.addColorStop(0, 'rgba(255,255,255,0.34)'); lg.addColorStop(0.5, 'rgba(255,255,255,0.10)'); lg.addColorStop(1, 'rgba(255,255,255,0.22)');
+  cx.fillStyle = lg; rr(lx, ly, cap.lw, cap.lh, cap.lw / 2); cx.fill();
+  cx.restore();
+  cx.lineWidth = Math.max(1.5, cap.h * 0.012);
+  cx.strokeStyle = 'rgba(255,255,255,0.62)'; rr(lx, ly, cap.lw, cap.lh, cap.lw / 2); cx.stroke();
+  cx.strokeStyle = 'rgba(255,255,255,0.18)'; rr(lx + cap.lw * 0.08, ly + cap.lw * 0.08, cap.lw * 0.84, cap.lh - cap.lw * 0.16, cap.lw * 0.42); cx.stroke();
+  cx.fillStyle = 'rgba(255,255,255,0.55)';
+  cx.beginPath(); cx.ellipse(lx + cap.lw * 0.30, ly + cap.lw * 0.30, cap.lw * 0.13, cap.lw * 0.19, -0.5, 0, 6.3); cx.fill();
+
+  // watermark
+  cx.textAlign = 'right'; cx.textBaseline = 'alphabetic';
+  cx.font = `${Math.max(10, Math.round(H * 0.013))}px Consolas, monospace`;
+  cx.fillStyle = css(mix([150, 150, 180], [120, 124, 140], g), 0.6);
+  cx.fillText('visual-library', W - 14, H - 12);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

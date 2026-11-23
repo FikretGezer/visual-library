@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.0 - 2026-11-23
+Second entry: an interactive pixel-art slider.
+
+### Added
+- AI Autopilot Slider: a pixel-art room in a capsule. A glass lens moves from dark manual chaos to bright full autopilot, and you can drag it yourself.
+- `NOTES.md` for it, with the technique, timings and tunable values.
+
 ## v0.1.0 - 2026-11-23
 First release: a reusable library of animated visuals with a searchable gallery.
 
