@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.3 - 2026-11-23
+Slider now stays night and messy until the far end.
+
+### Changed
+- AI autopilot slider: the night-to-day change follows a late curve (position^2.6). At 50% and 75% the room is still dark and messy; the final day look arrives only near 100%.
+
 ## v0.4.2 - 2026-11-23
 Skill setup moved to its own repo.
 

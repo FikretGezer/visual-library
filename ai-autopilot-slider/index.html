@@ -40,8 +40,10 @@ const SW = 264, SH = 80;
 const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH;
 const s = sc.getContext('2d');
 
+const warp = x => Math.pow(clamp(x), 2.6);       // keeps the scene dark/messy until late; final look only at the far end
 function drawScene(t, v){
-  const g = sm(v, G0, G1);                       // night -> day
+  v = warp(v);
+  const g = sm(v, G0, G1);                      // night -> day
   const C = (n, d, a = 1) => css(mix(n, d, g), a);
   const R = (x, y, w, h, col) => { s.fillStyle = col; s.fillRect(Math.round(x), Math.round(y), w, h); };
 
@@ -324,7 +326,7 @@ function frame(now){
   const t = now / 1000;
   if (!drag && t - lastInput > (phase.type === 'move' && mv && mv.dur === 0.6 ? 0 : 3)) stepAuto(t);
   layout();
-  const g = sm(v, G0, G1);
+  const g = sm(warp(v), G0, G1);
 
   // page background
   const bg = cx.createRadialGradient(W / 2, H * 0.54, 20, W / 2, H * 0.54, Math.max(W, H) * 0.7);
