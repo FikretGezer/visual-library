@@ -15,12 +15,17 @@ Pixel-art room in a pill track. Glass lens splits the scene: left of lens = brig
 - Theme: `applyTheme(pos)` lerps CSS variables (`--bg1 --bg2 --rimA --rimB --status --shadow`).
 - Sound (Web Audio, starts on first input): bandpass noise whoosh scaled by velocity, tick every 1/24, chime up when crossing 50% to autopilot, glitch down to chaos. Mute button bottom-right.
 
+## Modes
+Switch with the pill at the bottom centre (Otomatik / Tikla) or the M key; the choice is remembered (localStorage key `vl-slider-click-mode`). Default is click.
+- **Click:** click empty track left of lens: glide to full chaos. Right of lens: glide to full autopilot.
+- **Auto:** lens drifts left and right by itself (12 s per round trip, lingers at both ends). Dragging the lens or using the keys pauses it for 2.5 s; clicking empty track does nothing.
+- **Preview:** opening the page with `?preview=1` (the gallery thumbnails do this) forces auto mode, hides the mode pill, hint and mute button, and starts no sound.
+
 ## Interaction
-- Click empty track left of lens: glide to full chaos. Right of lens: glide to full autopilot.
 - Press the lens and drag: scrub. Arrow keys / Home / End also work.
 
 ## Tunables
-`rate = 4` (click glide speed), `MAG`, `--lens-w`, `THEME` colours, sprite coordinates inside `drawRoom`.
+`AUTO_PERIOD = 12` (seconds per auto round trip), `AUTO_RESUME_MS = 2500`, `rate = 4` (click glide speed), `MAG`, `--lens-w`, `THEME` colours, sprite coordinates inside `drawRoom`.
 
 ## Not included
 Reel's exact sprites (redrawn by eye from 12 s of video) and its watermark.

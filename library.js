@@ -26,6 +26,6 @@ window.LIBRARY = [
     tags: ["pixel-art", "slider", "interactive", "canvas", "animated", "ai", "sound"],
     source: "https://www.instagram.com/reel/DgFKoAWvFq6/",
     added: "2026-11-24",
-    description: "Same reel, second take: click either side to glide to night or day, or drag the magnifying glass lens. Page theme, counter and sound follow the slider."
+    description: "Same reel, second take: two modes you can switch inside the page: auto (drifts left and right on its own, also shown in the gallery preview) or click (click either side to glide to night or day); the lens can always be dragged. Page theme, counter and sound follow the slider."
   }
 ];

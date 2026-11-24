@@ -110,6 +110,22 @@
     font-size: 16px; cursor: pointer; backdrop-filter: blur(6px);
   }
   #mute:hover { background: rgba(20,22,30,.9); }
+  /* ---- Mod seçici (Otomatik / Tıkla) ---- */
+  .modes {
+    position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6;
+    display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: rgba(20,22,30,.72); border: 1px solid rgba(255,255,255,.22);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .modes button {
+    border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+    font: 600 12px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: .03em;
+    color: #aab0c0; background: transparent; transition: background .2s, color .2s;
+  }
+  .modes button:hover { color: #fff; }
+  .modes button[aria-pressed="true"] { background: #fff; color: #11131a; }
+  .modes button:focus-visible { outline: 2px solid #3ddc84; outline-offset: 1px; }
+  body.preview .modes, body.preview #mute, body.preview .hint { display: none; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
@@ -134,6 +150,10 @@
   </main>
   <p id="live" class="sr-only" aria-live="polite"></p>
   <button id="mute" title="Sesi aç/kapat" aria-label="Sesi aç/kapat">🔊</button>
+  <div class="modes" id="modes" role="group" aria-label="Mod">
+    <button type="button" id="modeAuto" data-mode="auto" aria-pressed="false" aria-label="Otomatik mod" title="Kendiliğinden sağa sola kayar (M)">⇄ Otomatik</button>
+    <button type="button" id="modeClick" data-mode="click" aria-pressed="true" aria-label="Tıkla modu" title="Tıklayınca sağa ya da sola gider (M)">👆 Tıkla</button>
+  </div>
 
 <script src="../back-button.js"></script>
 <script>
@@ -406,6 +426,38 @@
   let target = 1, pos = 1, prevPos = 1, vel = 0, dragging = false, started = false, rate = 16;
   let lastTick = -1, lastSide = 1, lastLabel = "";
 
+  /* ===================== Modlar: otomatik kayma / tıklayarak git ===================== */
+  // ?preview=1 (galeri önizlemesi): kendiliğinden kayma modu, arayüz gizli, ses yok.
+  const PREVIEW = /[?&]preview\b/.test(location.search);
+  const MODE_KEY = "vl-slider-click-mode", AUTO_PERIOD = 12, AUTO_RESUME_MS = 2500;
+  const HINTS = {
+    click: "Bir yere tıkla ya da lensi sürükle · ← → tuşları da çalışır · M: mod değiştir",
+    auto: "Kendiliğinden kayıyor · lensi tutarak durdurabilirsin · M: mod değiştir",
+  };
+  let mode = "click", autoPhase = 0, autoResumeAt = 0, hintTimer = 0;
+  try { if (!PREVIEW && localStorage.getItem(MODE_KEY) === "auto") mode = "auto"; } catch (_) {}
+  if (PREVIEW) { mode = "auto"; document.body.classList.add("preview"); }
+
+  function setMode(m, announce) {
+    mode = m;
+    for (const b of document.querySelectorAll(".modes button")) b.setAttribute("aria-pressed", String(b.dataset.mode === m));
+    hint.textContent = HINTS[m];
+    if (announce) {
+      try { localStorage.setItem(MODE_KEY, m); } catch (_) {}
+      hint.classList.remove("gone"); clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => hint.classList.add("gone"), 4500);
+    }
+    if (m === "auto") { autoPhase = 0; autoResumeAt = 0; rate = 5; }
+  }
+  const pauseAuto = () => { autoResumeAt = performance.now() + AUTO_RESUME_MS; };
+  for (const b of document.querySelectorAll(".modes button")) {
+    b.addEventListener("pointerdown", (e) => e.stopPropagation());
+    b.addEventListener("click", () => { begin(); setMode(b.dataset.mode, true); });
+  }
+  window.addEventListener("keydown", (e) => {
+    if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey && !e.altKey) { begin(); setMode(mode === "auto" ? "click" : "auto", true); }
+  });
+
   const sx = (clientX) => {
     const r = track.getBoundingClientRect();
     const x = Math.min(geo.max, Math.max(geo.min, clientX - r.left));
@@ -418,16 +470,16 @@
     const x = e.clientX - track.getBoundingClientRect().left;
     const lensX = geo.min + pos * (geo.max - geo.min);
     if (Math.abs(x - lensX) <= geo.lensW / 2 + 6) {   // lense bastı: sürükle
-      dragging = true; rate = 16; track.setPointerCapture(e.pointerId); target = sx(e.clientX);
-    } else {                                           // boşluğa tıkladı: yumuşakça gece/gündüze git
+      dragging = true; rate = 16; track.setPointerCapture(e.pointerId); target = sx(e.clientX); pauseAuto();
+    } else if (mode === "click") {                     // boşluğa tıkladı: yumuşakça gece/gündüze git
       rate = 4; target = x < lensX ? 0 : 1;
-    }
+    }                                                  // otomatik modda boşluğa tıklamak bir şey yapmaz
   });
   track.addEventListener("pointermove", (e) => { if (dragging) target = sx(e.clientX); });
-  const end = (e) => { dragging = false; try { track.releasePointerCapture(e.pointerId); } catch (_) {} };
+  const end = (e) => { dragging = false; pauseAuto(); try { track.releasePointerCapture(e.pointerId); } catch (_) {} };
   track.addEventListener("pointerup", end); track.addEventListener("pointercancel", end);
   track.addEventListener("keydown", (e) => {
-    begin(); rate = 16;
+    begin(); rate = 16; pauseAuto();
     const k = e.key;
     if (k === "ArrowLeft" || k === "ArrowDown") target -= 0.05;
     else if (k === "ArrowRight" || k === "ArrowUp") target += 0.05;
@@ -440,6 +492,13 @@
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
+
+    // otomatik mod: lens kendiliğinden sağa sola kayar (uçlarda biraz bekler); sürükleyince durur
+    if (mode === "auto" && !dragging && now >= autoResumeAt) {
+      autoPhase += dt / AUTO_PERIOD;
+      const c = 0.5 + 0.5 * Math.cos(2 * Math.PI * autoPhase);   // 1 → 0 → 1
+      target = c * c * (3 - 2 * c); rate = 5;
+    }
 
     // yay benzeri takip: lens parmağı sıvı gibi izler
     pos += (target - pos) * (1 - Math.exp(-dt * rate));
@@ -493,6 +552,7 @@
     requestAnimationFrame(frame);
   }
 
+  setMode(mode, false);
   layout();
   requestAnimationFrame(frame);
 })();

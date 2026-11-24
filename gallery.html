@@ -75,7 +75,7 @@ function render(){
     const url = `${e.folder}/index.html`;
     const c = document.createElement('div'); c.className = 'card';
     c.innerHTML = `
-      <div class="thumb" data-src="${url}"><div class="ph">yükleniyor…</div></div>
+      <div class="thumb" data-src="${url}?preview=1"><div class="ph">yükleniyor…</div></div>
       <div class="body">
         <div class="title">${e.title}</div>
         <div class="id">/visual ${e.id}</div>

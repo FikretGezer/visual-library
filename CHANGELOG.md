@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.2 - 2026-11-24
+AI autopilot slider (click): two modes.
+
+### Added
+- Mode switch inside the page (pill at the bottom, or the M key): auto (lens drifts left and right on its own) and click (click either side to go there). The choice is remembered.
+- Gallery preview of this entry now shows the auto drift (page opened with `?preview=1`, which hides the controls and sound).
+
 ## v0.5.1 - 2026-11-24
 Logo and tab icon.
 
