@@ -16,6 +16,7 @@ async function boot({ tmd, isHttps = false, clock, localAdmin } = {}) {
   const root = mkdtempSync(join(tmpdir(), "vl-auth-"));
   writeFileSync(join(root, "gallery.html"), "<h1>galeri</h1>");
   writeFileSync(join(root, "login.html"), "<h1>giris</h1>");
+  for (const n of ["logo.png", "logo-mark.png", "favicon.png", "favicon.ico", "apple-touch-icon.png"]) writeFileSync(join(root, n), "img");
   const store = createMemoryStore();
   await store.create({ email: "ali@x.com", role: "user" });
   await store.create({ email: "pasif@x.com", role: "user" });
@@ -210,4 +211,16 @@ test("localAdmin: kisa parola ya da eksik alan createAuth'u firlatir", () => {
   assert.throws(() => createAuth({ ...base, localAdmin: { email: "a@b", password: "kisa" } }), /LOCAL_ADMIN/);
   assert.throws(() => createAuth({ ...base, localAdmin: { email: "", password: "cok-uzun-yerel-parola" } }), /LOCAL_ADMIN/);
   assert.doesNotThrow(() => createAuth({ ...base, localAdmin: { email: "a@b", password: "cok-uzun-yerel-parola" } }));
+});
+test("logo ve ikon dosyalari giris yapmadan acilir, diger dosyalar acilmaz", async () => {
+  const { base, close } = await boot();
+  try {
+    for (const p of ["/logo.png", "/logo-mark.png", "/favicon.png", "/favicon.ico", "/apple-touch-icon.png"]) {
+      const r = await fetch(base + p, { redirect: "manual" });
+      assert.equal(r.status, 200, p);
+      assert.match(r.headers.get("content-type"), /^image\//, p);
+    }
+    assert.equal((await fetch(base + "/library.js", { redirect: "manual" })).status, 302);
+    assert.equal((await fetch(base + "/logo.png", { method: "POST", redirect: "manual" })).status, 401);
+  } finally { close(); }
 });

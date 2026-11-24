@@ -81,6 +81,8 @@ function send(res, status, text) {
   res.end(text);
 }
 
+// Giris sayfasinin de kullandigi logo/ikon dosyalari: oturum olmadan acilir (baska hicbir dosya acilmaz).
+const PUBLIC_FILES = new Set(["/logo.png", "/logo-mark.png", "/favicon.png", "/favicon.ico", "/apple-touch-icon.png"]);
 const LOCAL_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const defaultIsLocal = (req) => LOCAL_ADDRESSES.has(req.socket.remoteAddress ?? "");
 
@@ -137,6 +139,7 @@ export function createApp(root, deps = {}) {
       return handleLocalUpdate(res, deps.onUpdate);
     }
     if (deps.auth) {
+      if ((req.method === "GET" || req.method === "HEAD") && PUBLIC_FILES.has(pathOnly)) return serve(req, res);
       if (await deps.auth.handle(req, res)) return;
       const session = await deps.auth.authenticate(req);
       if (!session) {

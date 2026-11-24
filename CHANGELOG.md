@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.1 - 2026-11-24
+Logo and tab icon.
+
+### Added
+- Library logo on the login page, gallery and admin page; skull icon as the tab icon on every page (`favicon.png`, `favicon.ico`, `apple-touch-icon.png`). Logo and icon files open without login.
+- Admin page: "Ana sayfaya dön" button back to the gallery.
+
 ## v0.5.0 - 2026-11-24
 Server hosting with login.
 

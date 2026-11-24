@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <title>Visual Library</title>
+<link rel="icon" type="image/png" href="favicon.png"><link rel="icon" type="image/x-icon" href="favicon.ico"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root{color-scheme:dark}
   body{margin:0;background:#0b0e16;color:#d7dbe6;font:14px/1.4 system-ui,Segoe UI,sans-serif}
   header{position:sticky;top:0;z-index:2;background:#0b0e16ee;backdrop-filter:blur(6px);
          padding:16px 24px;display:flex;gap:16px;align-items:center;border-bottom:1px solid #1d2333}
   h1{font-size:18px;margin:0;font-weight:600}
+  .mark{width:34px;height:34px;image-rendering:pixelated;flex:none}
   #count{color:#7d8599}
   input{flex:1;max-width:420px;background:#141a27;border:1px solid #273048;color:inherit;
         border-radius:8px;padding:8px 12px;font:inherit}
@@ -36,7 +38,7 @@
 </head>
 <body>
 <header>
-  <h1>Visual Library</h1><span id="count"></span>
+  <img class="mark" src="logo-mark.png" alt=""><h1>Visual Library</h1><span id="count"></span>
   <input id="q" placeholder="Ara: isim, etiket, açıklama…" autofocus>
   <div class="nav" id="nav" hidden><a id="adminLink" href="/yonetim" hidden>Yönetim</a><button id="logout" type="button">Çıkış</button></div>
 </header>
