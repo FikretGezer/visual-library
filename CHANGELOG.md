@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.0 - 2026-11-24
+Server hosting with login.
+
+### Added
+- `server.mjs` serves the library on port 4099 (`PORT` in `.env`). `Kur.bat`, `Baslat.bat`, `Paketle.bat`, `Guncelle.bat` follow the AiMonitoring pattern.
+- Login: e-mail must be an active row in `visuallibrary.users` (RPA_DB) and TmdAuth must accept the password. Signed-cookie sessions (14 days sliding, 30 max) survive restarts.
+- `/yonetim` admin page: manage users (add, activate/deactivate, role, delete) and trigger an update from anywhere.
+- Auto update from GitHub every `UPDATE_MINUTES` (default 30): `git pull`, or repo zip when Git is missing.
+- Emergency admin account (`LOCAL_ADMIN_EMAIL` / `LOCAL_ADMIN_PASSWORD`) that logs in without TmdAuth or the database.
+- New library entry: AI Autopilot Slider (click).
+- `/visual github` skill command to commit, tag and push so the server pulls the change.
+
 ## v0.4.3 - 2026-11-23
 Slider now stays night and messy until the far end.
 
@@ -59,3 +71,4 @@ First release: a reusable library of animated visuals with a searchable gallery.
 ### Why
 - Visuals are saved once and reused instead of being rewritten each time.
 - One manifest file keeps the library organised as it grows.
+

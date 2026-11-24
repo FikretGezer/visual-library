@@ -29,12 +29,16 @@
   .actions{display:flex;gap:8px;padding:0 14px 14px}
   .actions a{font-size:12px;color:#aab2c5;text-decoration:none;border:1px solid #273048;border-radius:6px;padding:4px 10px}
   .actions a:hover{border-color:#2b5cff;color:#fff}
+  .nav{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .nav a,.nav button{font:inherit;font-size:12px;color:#aab2c5;text-decoration:none;background:none;border:1px solid #273048;border-radius:6px;padding:4px 10px;cursor:pointer}
+  .nav a:hover,.nav button:hover{border-color:#2b5cff;color:#fff}
 </style>
 </head>
 <body>
 <header>
   <h1>Visual Library</h1><span id="count"></span>
   <input id="q" placeholder="Ara: isim, etiket, açıklama…" autofocus>
+  <div class="nav" id="nav" hidden><a id="adminLink" href="/yonetim" hidden>Yönetim</a><button id="logout" type="button">Çıkış</button></div>
 </header>
 <div id="tags"></div>
 <main id="grid"></main>
@@ -87,6 +91,16 @@ function render(){
   }
 }
 q.oninput = render; render();
+// Sunucuda girişliyse Çıkış (ve yönetici ise Yönetim) görünür; dosyadan açılınca sessizce gizli kalır.
+fetch('/_api/me').then(r => r.ok ? r.json() : null).then(me => {
+  if (!me) return;
+  document.getElementById('nav').hidden = false;
+  if (me.role === 'admin') document.getElementById('adminLink').hidden = false;
+}).catch(() => {});
+document.getElementById('logout').onclick = async () => {
+  await fetch('/_api/logout', { method: 'POST' }).catch(() => {});
+  location.href = '/giris';
+};
 </script>
 </body>
 </html>

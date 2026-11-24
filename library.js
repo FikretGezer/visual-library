@@ -18,5 +18,14 @@ window.LIBRARY = [
     source: "https://www.instagram.com/p/DgFKoAWvFq6/",
     added: "2026-11-23",
     description: "Pixel-art room in a capsule: a glass lens slides from dark manual chaos to bright full autopilot. Draggable."
+  },
+  {
+    id: "ai-autopilot-slider-click",
+    title: "AI Autopilot Slider (click)",
+    folder: "ai-autopilot-slider-click",
+    tags: ["pixel-art", "slider", "interactive", "canvas", "animated", "ai", "sound"],
+    source: "https://www.instagram.com/reel/DgFKoAWvFq6/",
+    added: "2026-11-24",
+    description: "Same reel, second take: click either side to glide to night or day, or drag the magnifying glass lens. Page theme, counter and sound follow the slider."
   }
 ];
